@@ -1,0 +1,13 @@
+project_id = "rigephaotatgkzciowur"
+
+[functions.generate-fitness-plan]
+verify_jwt = false
+
+[functions.generate-exercise-image]
+verify_jwt = false
+
+[functions.generate-motivation-quote]
+verify_jwt = false
+
+[functions.text-to-speech]
+verify_jwt = false
