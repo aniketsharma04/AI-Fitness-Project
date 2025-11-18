@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Quote } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+
 
 const MotivationQuote = () => {
   const [quote, setQuote] = useState("");
@@ -13,30 +13,20 @@ const MotivationQuote = () => {
 
   const fetchQuote = async () => {
     try {
-      const LOVABLE_API_KEY = import.meta.env.VITE_LOVABLE_API_KEY as string | undefined;
-      if (LOVABLE_API_KEY) {
-        const resp = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${LOVABLE_API_KEY}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            model: 'google/gemini-2.5-flash',
-            messages: [{ role: 'user', content: 'Generate a single short, powerful, and motivating fitness quote (maximum 20 words). Return ONLY the quote text, no attribution, no extra formatting.' }],
-            temperature: 0.9,
-            max_tokens: 100,
-          }),
-        });
-        if (!resp.ok) throw new Error(`AI error: ${resp.status}`);
-        const json = await resp.json();
-        const q = (json.choices?.[0]?.message?.content || '').trim().replace(/^(["'])|(["'])$/g, '');
-        setQuote(q);
-      } else {
-        const { data, error } = await supabase.functions.invoke("generate-motivation-quote");
-        if (error) throw error;
-        setQuote(data.quote);
-      }
+      const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY as string | undefined;
+      if (!GEMINI_API_KEY) throw new Error("Missing VITE_GEMINI_API_KEY in .env");
+      const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ role: 'user', parts: [{ text: 'Generate a single short, powerful, and motivating fitness quote (maximum 20 words). Return ONLY the quote text, no attribution, no extra formatting.' }]}],
+          generationConfig: { temperature: 0.9, maxOutputTokens: 100 },
+        }),
+      });
+      if (!resp.ok) throw new Error(`Gemini error: ${resp.status}`);
+      const json = await resp.json();
+      const q = (json.candidates?.[0]?.content?.parts?.[0]?.text || '').trim().replace(/^(["'])|(["'])$/g, '');
+      setQuote(q);
     } catch (error) {
       console.error("Error fetching quote:", error);
       setQuote("Believe in yourself and all that you are. Know that there is something inside you that is greater than any obstacle.");

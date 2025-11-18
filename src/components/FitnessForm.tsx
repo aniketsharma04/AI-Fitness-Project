@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+
 
 interface FitnessFormProps {
   onPlanGenerated: (plan: any) => void;
@@ -32,6 +32,43 @@ const FitnessForm = ({ onPlanGenerated }: FitnessFormProps) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+
+    const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY as string | undefined;
+    if (GEMINI_API_KEY) {
+      try {
+        const prompt = `You are an expert fitness coach and nutritionist. Generate a comprehensive, personalized fitness and diet plan based on the following user information:\n\nName: ${formData.name}\nAge: ${formData.age}\nGender: ${formData.gender}\nHeight: ${formData.height}cm\nWeight: ${formData.weight}kg\nGoal: ${formData.goal}\nFitness Level: ${formData.fitnessLevel}\nWorkout Location: ${formData.location}\nDietary Preference: ${formData.diet}\n${formData.medical ? `Medical History: ${formData.medical}` : ''}\n${formData.stress ? `Stress Level: ${formData.stress}` : ''}\n\nCreate a detailed plan with:\n1. A 7-day workout plan with specific exercises, sets, reps, and rest times\n2. A comprehensive diet plan with breakfast, lunch, dinner, and snacks including calories and macros\n3. Lifestyle tips, posture advice, and motivational content\n\nReturn ONLY a valid JSON object with keys: workout.days[*].exercises[*], diet.meals[*].items[*], tips.sections[*].items[*].`;
+
+        const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ role: 'user', parts: [{ text: prompt }]}],
+            generationConfig: { temperature: 0.7, maxOutputTokens: 4096 },
+          }),
+        });
+
+        if (!resp.ok) {
+          const t = await resp.text();
+          throw new Error(`Gemini error: ${resp.status} ${t}`);
+        }
+
+        const json = await resp.json();
+        const generatedText = json.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        const match = generatedText.match(/```json\n([\s\S]*?)\n```/) || generatedText.match(/```\n([\s\S]*?)\n```/);
+        const text = match ? match[1] : generatedText;
+        const plan = JSON.parse(text.trim());
+
+        localStorage.setItem("fitnessplan", JSON.stringify(plan));
+        toast.success("Your personalized plan is ready!");
+        onPlanGenerated(plan);
+      } catch (error: any) {
+        console.error("Error generating plan:", error);
+        toast.error(error.message || "Failed to generate plan. Please try again.");
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
 
     try {
       const LOVABLE_API_KEY = import.meta.env.VITE_LOVABLE_API_KEY as string | undefined;

@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Download, RefreshCw, Volume2, VolumeX } from "lucide-react";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+
 import WorkoutSection from "@/components/WorkoutSection";
 import DietSection from "@/components/DietSection";
 import TipsSection from "@/components/TipsSection";
@@ -66,7 +66,7 @@ const PlanDisplay = ({ plan, onNewPlan }: PlanDisplayProps) => {
       const planText = `Your personalized fitness plan.\n\nWorkout Plan:\n${workoutText}\n\nDiet Plan:\n${dietText}\n\nTips:\n${tipsText}`;
 
       const ELEVENLABS_API_KEY = import.meta.env.VITE_ELEVENLABS_API_KEY as string | undefined;
-      if (ELEVENLABS_API_KEY) {
+      if (!ELEVENLABS_API_KEY) throw new Error("Missing VITE_ELEVENLABS_API_KEY in .env");
         const voiceMap: Record<string, string> = {
           Sarah: 'EXAVITQu4vr4xnSDxMaL',
           Aria: '9BWtsMINqrJLrRacOk9x',
@@ -96,23 +96,16 @@ const PlanDisplay = ({ plan, onNewPlan }: PlanDisplayProps) => {
         const audioBlob = new Blob([audioBuffer], { type: 'audio/mpeg' });
         const audioUrl = URL.createObjectURL(audioBlob);
         audioRef.current = new Audio(audioUrl);
-      } else {
-        const { data, error } = await supabase.functions.invoke('text-to-speech', { body: { text: planText, voice: 'Sarah' } });
-        if (error) throw error;
-        const audioBlob = new Blob([Uint8Array.from(atob(data.audioContent), c => c.charCodeAt(0))], { type: 'audio/mpeg' });
-        const audioUrl = URL.createObjectURL(audioBlob);
-        audioRef.current = new Audio(audioUrl);
-      }
       
       audioRef.current.onended = () => {
         setIsPlaying(false);
-        URL.revokeObjectURL(audioUrl);
+        if (audioRef.current?.src) URL.revokeObjectURL(audioRef.current.src);
         toast.success("Finished playing plan");
       };
 
       audioRef.current.onerror = () => {
         setIsPlaying(false);
-        URL.revokeObjectURL(audioUrl);
+        if (audioRef.current?.src) URL.revokeObjectURL(audioRef.current.src);
         toast.error("Error playing audio");
       };
 
