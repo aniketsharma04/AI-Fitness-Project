@@ -41,38 +41,68 @@ const PlanDisplay = ({ plan, onNewPlan }: PlanDisplayProps) => {
       setIsPlaying(true);
       toast.info("Generating audio...");
 
-      // Convert plan to readable text
-      const planText = `
-        Your personalized fitness plan.
-        
-        Workout Plan:
-        ${plan.workout.exercises.map((ex: any) => 
-          `${ex.name}: ${ex.sets} sets of ${ex.reps} repetitions`
-        ).join('. ')}
-        
-        Diet Plan:
-        ${plan.diet.meals.map((meal: any) => 
-          `${meal.name}: ${meal.description}`
-        ).join('. ')}
-        
-        Tips:
-        ${plan.tips.join('. ')}
-      `;
+      const workoutText = Array.isArray(plan.workout?.days)
+        ? plan.workout.days
+            .map((day: any) => `${day.day}: ${Array.isArray(day.exercises) ? day.exercises
+              .map((ex: any) => `${ex.name}${ex.sets ? ` ${ex.sets} sets` : ''}${ex.reps ? ` of ${ex.reps}` : ''}${ex.rest ? `, rest ${ex.rest}` : ''}`)
+              .join('; ') : ''}`)
+            .join('. ')
+        : 'No workout details available';
 
-      const { data, error } = await supabase.functions.invoke('text-to-speech', {
-        body: { text: planText, voice: 'Sarah' }
-      });
+      const dietText = Array.isArray(plan.diet?.meals)
+        ? plan.diet.meals
+            .map((meal: any) => `${meal.name}: ${Array.isArray(meal.items) ? meal.items
+              .map((item: any) => `${item.name}${item.portion ? ` (${item.portion})` : ''}`)
+              .join('; ') : ''}`)
+            .join('. ')
+        : 'No diet details available';
 
-      if (error) throw error;
+      const tipsText = Array.isArray(plan.tips?.sections)
+        ? plan.tips.sections
+            .map((s: any) => `${s.title}: ${Array.isArray(s.items) ? s.items.join('; ') : ''}`)
+            .join('. ')
+        : '';
 
-      // Convert base64 to audio and play
-      const audioBlob = new Blob(
-        [Uint8Array.from(atob(data.audioContent), c => c.charCodeAt(0))],
-        { type: 'audio/mpeg' }
-      );
-      
-      const audioUrl = URL.createObjectURL(audioBlob);
-      audioRef.current = new Audio(audioUrl);
+      const planText = `Your personalized fitness plan.\n\nWorkout Plan:\n${workoutText}\n\nDiet Plan:\n${dietText}\n\nTips:\n${tipsText}`;
+
+      const ELEVENLABS_API_KEY = import.meta.env.VITE_ELEVENLABS_API_KEY as string | undefined;
+      if (ELEVENLABS_API_KEY) {
+        const voiceMap: Record<string, string> = {
+          Sarah: 'EXAVITQu4vr4xnSDxMaL',
+          Aria: '9BWtsMINqrJLrRacOk9x',
+          Roger: 'CwhRBWXzGAHq8TQ4Fs17',
+          Laura: 'FGY2WhTYpPnrIDTdsKH5',
+          Charlie: 'IKne3meq5aSn9XLyUdCD',
+        };
+        const voiceId = voiceMap['Sarah'];
+        const resp = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
+          method: 'POST',
+          headers: {
+            Accept: 'audio/mpeg',
+            'xi-api-key': ELEVENLABS_API_KEY,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            text: planText,
+            model_id: 'eleven_turbo_v2',
+            voice_settings: { stability: 0.5, similarity_boost: 0.75 },
+          }),
+        });
+        if (!resp.ok) {
+          const t = await resp.text();
+          throw new Error(`ElevenLabs error: ${resp.status} ${t}`);
+        }
+        const audioBuffer = await resp.arrayBuffer();
+        const audioBlob = new Blob([audioBuffer], { type: 'audio/mpeg' });
+        const audioUrl = URL.createObjectURL(audioBlob);
+        audioRef.current = new Audio(audioUrl);
+      } else {
+        const { data, error } = await supabase.functions.invoke('text-to-speech', { body: { text: planText, voice: 'Sarah' } });
+        if (error) throw error;
+        const audioBlob = new Blob([Uint8Array.from(atob(data.audioContent), c => c.charCodeAt(0))], { type: 'audio/mpeg' });
+        const audioUrl = URL.createObjectURL(audioBlob);
+        audioRef.current = new Audio(audioUrl);
+      }
       
       audioRef.current.onended = () => {
         setIsPlaying(false);

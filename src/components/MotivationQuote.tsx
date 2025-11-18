@@ -13,11 +13,30 @@ const MotivationQuote = () => {
 
   const fetchQuote = async () => {
     try {
-      const { data, error } = await supabase.functions.invoke("generate-motivation-quote");
-      
-      if (error) throw error;
-      
-      setQuote(data.quote);
+      const LOVABLE_API_KEY = import.meta.env.VITE_LOVABLE_API_KEY as string | undefined;
+      if (LOVABLE_API_KEY) {
+        const resp = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${LOVABLE_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'google/gemini-2.5-flash',
+            messages: [{ role: 'user', content: 'Generate a single short, powerful, and motivating fitness quote (maximum 20 words). Return ONLY the quote text, no attribution, no extra formatting.' }],
+            temperature: 0.9,
+            max_tokens: 100,
+          }),
+        });
+        if (!resp.ok) throw new Error(`AI error: ${resp.status}`);
+        const json = await resp.json();
+        const q = (json.choices?.[0]?.message?.content || '').trim().replace(/^(["'])|(["'])$/g, '');
+        setQuote(q);
+      } else {
+        const { data, error } = await supabase.functions.invoke("generate-motivation-quote");
+        if (error) throw error;
+        setQuote(data.quote);
+      }
     } catch (error) {
       console.error("Error fetching quote:", error);
       setQuote("Believe in yourself and all that you are. Know that there is something inside you that is greater than any obstacle.");

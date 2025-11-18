@@ -17,14 +17,36 @@ const WorkoutSection = ({ workout }: WorkoutSectionProps) => {
   const handleGenerateImage = async (exerciseName: string) => {
     setLoadingImage(exerciseName);
     try {
-      const { data, error } = await supabase.functions.invoke("generate-exercise-image", {
-        body: { prompt: `A professional fitness demonstration of ${exerciseName} exercise in a gym setting, high quality, detailed` },
-      });
-
-      if (error) throw error;
-
-      setExerciseImages((prev) => ({ ...prev, [exerciseName]: data.image }));
-      toast.success("Image generated!");
+      const LOVABLE_API_KEY = import.meta.env.VITE_LOVABLE_API_KEY as string | undefined;
+      const prompt = `A professional fitness demonstration of ${exerciseName} exercise in a gym setting, high quality, detailed`;
+      if (LOVABLE_API_KEY) {
+        const resp = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${LOVABLE_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'google/gemini-2.5-flash-image-preview',
+            messages: [{ role: 'user', content: prompt }],
+            modalities: ['image', 'text'],
+          }),
+        });
+        if (!resp.ok) {
+          const t = await resp.text();
+          throw new Error(`AI error: ${resp.status} ${t}`);
+        }
+        const json = await resp.json();
+        const imageUrl = json.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+        if (!imageUrl) throw new Error('No image generated');
+        setExerciseImages((prev) => ({ ...prev, [exerciseName]: imageUrl }));
+        toast.success("Image generated!");
+      } else {
+        const { data, error } = await supabase.functions.invoke("generate-exercise-image", { body: { prompt } });
+        if (error) throw error;
+        setExerciseImages((prev) => ({ ...prev, [exerciseName]: data.image }));
+        toast.success("Image generated!");
+      }
     } catch (error: any) {
       console.error("Error generating image:", error);
       toast.error("Failed to generate image");
