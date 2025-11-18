@@ -38,14 +38,14 @@ const FitnessForm = ({ onPlanGenerated }: FitnessFormProps) => {
       try {
         const prompt = `You are an expert fitness coach and nutritionist. Generate a comprehensive, personalized fitness and diet plan based on the following user information:\n\nName: ${formData.name}\nAge: ${formData.age}\nGender: ${formData.gender}\nHeight: ${formData.height}cm\nWeight: ${formData.weight}kg\nGoal: ${formData.goal}\nFitness Level: ${formData.fitnessLevel}\nWorkout Location: ${formData.location}\nDietary Preference: ${formData.diet}\n${formData.medical ? `Medical History: ${formData.medical}` : ''}\n${formData.stress ? `Stress Level: ${formData.stress}` : ''}\n\nCreate a detailed plan with:\n1. A 7-day workout plan with specific exercises, sets, reps, and rest times\n2. A comprehensive diet plan with breakfast, lunch, dinner, and snacks including calories and macros\n3. Lifestyle tips, posture advice, and motivational content\n\nReturn ONLY a valid JSON object with keys: workout.days[*].exercises[*], diet.meals[*].items[*], tips.sections[*].items[*].`;
 
-        const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ role: 'user', parts: [{ text: prompt }]}],
-            generationConfig: { temperature: 0.7, maxOutputTokens: 4096 },
-          }),
-        });
+      const resp = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ role: 'user', parts: [{ text: prompt }]}],
+          generationConfig: { temperature: 0.7, maxOutputTokens: 4096 },
+        }),
+      });
 
         if (!resp.ok) {
           const t = await resp.text();
