@@ -20,7 +20,12 @@ const PlanDisplay = ({ plan, onNewPlan }: PlanDisplayProps) => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const handleExportPDF = () => {
-    toast.info("PDF export coming soon!");
+    try {
+      window.print();
+      toast.success("Exporting as PDF...");
+    } catch {
+      toast.error("Failed to initiate PDF export");
+    }
   };
 
   const handlePlayPlan = async () => {
@@ -92,9 +97,9 @@ const PlanDisplay = ({ plan, onNewPlan }: PlanDisplayProps) => {
   };
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
+    <div id="print-area" className="max-w-6xl mx-auto space-y-6">
       {/* Action Buttons */}
-      <div className="flex flex-wrap gap-3 justify-between items-center">
+      <div className="no-print flex flex-wrap gap-3 justify-between items-center">
         <h2 className="text-3xl font-bold">Your Personalized Plan</h2>
         <div className="flex gap-3">
           <Button variant="outline" onClick={handlePlayPlan} disabled={isPlaying && !audioRef.current}>
